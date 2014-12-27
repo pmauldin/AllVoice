@@ -1,5 +1,7 @@
 package me.pmauldin.allvoice;
 
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.Menu;
@@ -44,20 +46,25 @@ public class MainActivity extends ActionBarActivity {
         setContentView(R.layout.activity_main);
 
         final Button recordButton = (Button) findViewById(R.id.record);
+        recordButton.setTypeface(null, Typeface.BOLD);
 
         recordButton.setOnClickListener(
                 new Button.OnClickListener(){
                     public void onClick(View v) {
                         if(recording) {
+                            recordButton.setText("Start Recording");
+                            recordButton.setTextColor(Color.BLACK);
                             // STOP RECORDING //
 
 
-                            recordButton.setText("Start Recording");
+
                         } else {
+                            recordButton.setText("Stop Recording");
+                            recordButton.setTextColor(Color.RED);
                             // START RECORDING //
 
 
-                            recordButton.setText("Stop Recording");
+
                         }
                         recording = !recording;
                     }
