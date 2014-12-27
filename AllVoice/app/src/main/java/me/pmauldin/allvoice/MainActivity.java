@@ -8,6 +8,32 @@ import android.view.View;
 import android.widget.Button;
 
 
+/* TODO
+    * CREATE PREFERENCES SCREEN -
+        * Checkboxes
+            * Google Drive, DropBox, Box, OneDrive(?)
+            * Also Save Notes locally?
+            * Auto-name or custom?
+
+    * CHECK IF PREFERENCES ALREADY SET; IF NOT, GO TO PREFERENCES SCREEN, ELSE GO TO MAIN
+        * If no options are selected for upload, don't allow them to continue
+
+    * MAKE FOLDER TO SAVE FILES LOCALLY (REGARDLESS OF SETTING)
+        * Check at onCreate
+
+    * ALLOW RECORDING ***************
+
+    * POPUP AFTER STOPPING THE RECORDING
+        * Allow Discarding of note
+        * Playback and pausing, restart
+        * Save Button
+        * Generate name based on time/date, and make it editable based on setting
+
+    * MAKE SURE TO STOP MIC AND DISCARD ON EXIT
+
+    * UPLOAD
+*/
+
 public class MainActivity extends ActionBarActivity {
 
     private static boolean recording = false;
