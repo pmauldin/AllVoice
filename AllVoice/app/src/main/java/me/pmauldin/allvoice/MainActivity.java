@@ -46,13 +46,13 @@ public class MainActivity extends ActionBarActivity {
         setContentView(R.layout.activity_main);
 
         final Button recordButton = (Button) findViewById(R.id.record);
-        recordButton.setTypeface(null, Typeface.BOLD);
 
         recordButton.setOnClickListener(
                 new Button.OnClickListener(){
                     public void onClick(View v) {
                         if(recording) {
                             recordButton.setText("Start Recording");
+                            recordButton.setTypeface(null, Typeface.NORMAL);
                             recordButton.setTextColor(Color.BLACK);
                             // STOP RECORDING //
 
@@ -60,6 +60,7 @@ public class MainActivity extends ActionBarActivity {
 
                         } else {
                             recordButton.setText("Stop Recording");
+                            recordButton.setTypeface(null, Typeface.BOLD);
                             recordButton.setTextColor(Color.RED);
                             // START RECORDING //
 
