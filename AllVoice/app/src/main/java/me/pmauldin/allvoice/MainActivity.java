@@ -152,7 +152,10 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void onClick(DialogInterface dialog, int id) {
                 String fileName = input.getText().toString();
-                Log.i(LOG_TAG, fileName);
+                if(!fileName.equals("")) {
+                   File file = new File(dir.getPath()+"/", path);
+                   file.renameTo(new File(dir.getAbsoluteFile()+"/" + fileName + ".3gp"));
+                }
                 dialog.cancel();
             }
         });
