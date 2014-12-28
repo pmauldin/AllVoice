@@ -6,5 +6,9 @@
     <string name="action_settings">Settings</string>
     <string name="StartRecording">Start Recording</string>
     <string name="Time">Large Text</string>
+    <string name="save">Save</string>
+    <string name="discard">Discard</string>
+    <string name="neutral">Preview</string>
+    <string name="message">Keep this audio?</string>
 
 </resources>

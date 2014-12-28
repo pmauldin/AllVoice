@@ -1,5 +1,8 @@
 package me.pmauldin.allvoice;
 
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.os.Environment;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
@@ -11,7 +14,7 @@ import android.media.MediaRecorder;
 import android.media.MediaPlayer;
 import android.util.Log;
 import android.widget.ImageButton;
-import android.widget.PopupWindow;
+import android.widget.EditText;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,9 +42,12 @@ import java.util.Calendar;
 */
 
 public class MainActivity extends ActionBarActivity {
-    private static final String LOG_TAG = "AudioRecordTest";
+    private static final String LOG_TAG = "Custom";
 
     private static String mFileName = null;
+    private static String path = null;
+    private static File dir = null;
+    final Context context = this;
 
     private static boolean recording = false;
     private static boolean playing = false;
@@ -57,13 +63,10 @@ public class MainActivity extends ActionBarActivity {
 
         recorder = new MediaRecorder();
 
-//        final Button recordButton = (Button) findViewById(R.id.record);
         final ImageButton recordButton = (ImageButton) findViewById(R.id.blueButton);
-        final Button playButton = (Button) findViewById(R.id.play);
-        playButton.setVisibility(View.INVISIBLE);
 
         // CHECK IF DIR EXISTS, AND CREATE IF NOT
-        final File dir = new File(Environment.getExternalStorageDirectory() + "/AllVoice");
+        dir = new File(Environment.getExternalStorageDirectory() + "/AllVoice");
         if(!(dir.exists() && dir.isDirectory())) {
             try {
                 dir.mkdirs();
@@ -77,26 +80,21 @@ public class MainActivity extends ActionBarActivity {
                 new Button.OnClickListener(){
                     public void onClick(View v) {
                         if(recording) {
-//                            recordButton.setText("Start Recording");
-//                            recordButton.setTypeface(null, Typeface.NORMAL);
-//                            recordButton.setTextColor(Color.BLACK);
                             recordButton.setImageResource(R.drawable.bluebutton);
                             // STOP RECORDING //
                             recorder.stop();
                             recorder.reset();
-                            playButton.setVisibility(View.VISIBLE);
+                            createDialog();
 
                         } else {
-//                            recordButton.setText("Stop Recording");
-//                            recordButton.setTypeface(null, Typeface.BOLD);
-//                            recordButton.setTextColor(Color.RED);
                               recordButton.setImageResource(R.drawable.redbutton);
                             // START RECORDING //
                             try {
                                 recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                                 recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-                                mFileName = dir.getAbsolutePath() + "/" + getCurrentTimeFormat(DateFormat) + ".3gp";
+                                path = getCurrentTimeFormat(DateFormat) + ".3gp";
+                                mFileName = dir.getAbsolutePath() + "/" + path;
                                 recorder.setOutputFile(mFileName);
                                 recorder.prepare();
                                 recorder.start();
@@ -110,25 +108,6 @@ public class MainActivity extends ActionBarActivity {
                 }
         );
 
-        playButton.setOnClickListener(
-                new Button.OnClickListener() {
-                    public void onClick(View v) {
-                        if(!playing) {
-                            mPlayer = new MediaPlayer();
-                            try {
-                                mPlayer.setDataSource(mFileName);
-                                mPlayer.prepare();
-                                mPlayer.start();
-                            } catch (IOException e) {
-                                Log.e(LOG_TAG, "prepare() failed");
-                            }
-                        } else{
-                            mPlayer.release();
-                            mPlayer = null;
-                        }
-                    }
-                }
-        );
     }
 
     @Override
@@ -154,12 +133,69 @@ public class MainActivity extends ActionBarActivity {
     }
 
     private String getCurrentTimeFormat(String timeFormat){
-        String time = "";
         SimpleDateFormat df = new SimpleDateFormat(timeFormat);
         Calendar c = Calendar.getInstance();
-        time = df.format(c.getTime());
 
-        return time;
+        return df.format(c.getTime());
+    }
+
+    public void createDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setMessage(R.string.message);
+        builder.setCancelable(false);
+
+        final EditText input = new EditText(this);
+        input.setHint(path);
+        builder.setView(input);
+
+        builder.setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int id) {
+                String fileName = input.getText().toString();
+                Log.i(LOG_TAG, fileName);
+                dialog.cancel();
+            }
+        });
+        builder.setNegativeButton(R.string.discard, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int id) {
+                File file = new File(dir.getPath()+"/", path);
+                boolean deleted = file.delete();
+                dialog.cancel();
+            }
+        });
+        builder.setNeutralButton(R.string.neutral, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int id) {
+
+            }
+        });
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                play();
+            }
+        });
+    }
+
+    public void play() {
+        if(!playing) {
+            mPlayer = new MediaPlayer();
+            try {
+                mPlayer.setDataSource(mFileName);
+                mPlayer.prepare();
+                mPlayer.start();
+            } catch (IOException e) {
+                Log.e(LOG_TAG, "prepare() failed");
+            }
+        } else{
+            mPlayer.release();
+            mPlayer = null;
+        }
     }
 
 }
