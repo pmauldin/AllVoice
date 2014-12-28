@@ -2,13 +2,21 @@ package me.pmauldin.allvoice;
 
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.os.Environment;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.media.MediaRecorder;
+import android.media.MediaPlayer;
+import android.util.Log;
 
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 
 /* TODO
     * CREATE PREFERENCES SCREEN -
@@ -16,14 +24,10 @@ import android.widget.Button;
             * Google Drive, DropBox, Box, OneDrive(?)
             * Also Save Notes locally?
             * Auto-name or custom?
+            * Stop Recording when app is in background?
 
     * CHECK IF PREFERENCES ALREADY SET; IF NOT, GO TO PREFERENCES SCREEN, ELSE GO TO MAIN
         * If no options are selected for upload, don't allow them to continue
-
-    * MAKE FOLDER TO SAVE FILES LOCALLY (REGARDLESS OF SETTING)
-        * Check at onCreate
-
-    * ALLOW RECORDING ***************
 
     * POPUP AFTER STOPPING THE RECORDING
         * Allow Discarding of note
@@ -31,21 +35,42 @@ import android.widget.Button;
         * Save Button
         * Generate name based on time/date, and make it editable based on setting
 
-    * MAKE SURE TO STOP MIC AND DISCARD ON EXIT
-
     * UPLOAD
 */
 
 public class MainActivity extends ActionBarActivity {
+    private static final String LOG_TAG = "AudioRecordTest";
+
+    private static String mFileName = null;
 
     private static boolean recording = false;
+    private static boolean playing = false;
+
+    private static final String DateFormat = "M-d-y-k:m:s";
+    private MediaPlayer mPlayer = null;
+    private MediaRecorder recorder = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        recorder = new MediaRecorder();
+
         final Button recordButton = (Button) findViewById(R.id.record);
+        final Button playButton = (Button) findViewById(R.id.play);
+        playButton.setVisibility(View.INVISIBLE);
+
+        // CHECK IF DIR EXISTS, AND CREATE IF NOT
+        final File dir = new File(Environment.getExternalStorageDirectory() + "/AllVoice");
+        if(!(dir.exists() && dir.isDirectory())) {
+            try {
+                dir.mkdirs();
+            } catch (Exception e) {
+                Log.e(LOG_TAG, "directory failed");
+            }
+        }
+
 
         recordButton.setOnClickListener(
                 new Button.OnClickListener(){
@@ -55,19 +80,49 @@ public class MainActivity extends ActionBarActivity {
                             recordButton.setTypeface(null, Typeface.NORMAL);
                             recordButton.setTextColor(Color.BLACK);
                             // STOP RECORDING //
-
-
+                            recorder.stop();
+                            recorder.reset();
+                            playButton.setVisibility(View.VISIBLE);
 
                         } else {
                             recordButton.setText("Stop Recording");
                             recordButton.setTypeface(null, Typeface.BOLD);
                             recordButton.setTextColor(Color.RED);
                             // START RECORDING //
-
-
+                            try {
+                                recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+                                recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+                                recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+                                mFileName = dir.getAbsolutePath() + "/" + getCurrentTimeFormat(DateFormat) + ".3gp";
+                                recorder.setOutputFile(mFileName);
+                                recorder.prepare();
+                                recorder.start();
+                            } catch (IOException e) {
+                                Log.e(LOG_TAG, "prepare() failed");
+                            }
 
                         }
                         recording = !recording;
+                    }
+                }
+        );
+
+        playButton.setOnClickListener(
+                new Button.OnClickListener() {
+                    public void onClick(View v) {
+                        if(!playing) {
+                            mPlayer = new MediaPlayer();
+                            try {
+                                mPlayer.setDataSource(mFileName);
+                                mPlayer.prepare();
+                                mPlayer.start();
+                            } catch (IOException e) {
+                                Log.e(LOG_TAG, "prepare() failed");
+                            }
+                        } else{
+                            mPlayer.release();
+                            mPlayer = null;
+                        }
                     }
                 }
         );
@@ -93,6 +148,15 @@ public class MainActivity extends ActionBarActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private String getCurrentTimeFormat(String timeFormat){
+        String time = "";
+        SimpleDateFormat df = new SimpleDateFormat(timeFormat);
+        Calendar c = Calendar.getInstance();
+        time = df.format(c.getTime());
+
+        return time;
     }
 
 }
