@@ -1,7 +1,5 @@
 package me.pmauldin.allvoice;
 
-import android.graphics.Color;
-import android.graphics.Typeface;
 import android.os.Environment;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
@@ -12,6 +10,8 @@ import android.widget.Button;
 import android.media.MediaRecorder;
 import android.media.MediaPlayer;
 import android.util.Log;
+import android.widget.ImageButton;
+import android.widget.PopupWindow;
 
 import java.io.File;
 import java.io.IOException;
@@ -57,7 +57,8 @@ public class MainActivity extends ActionBarActivity {
 
         recorder = new MediaRecorder();
 
-        final Button recordButton = (Button) findViewById(R.id.record);
+//        final Button recordButton = (Button) findViewById(R.id.record);
+        final ImageButton recordButton = (ImageButton) findViewById(R.id.blueButton);
         final Button playButton = (Button) findViewById(R.id.play);
         playButton.setVisibility(View.INVISIBLE);
 
@@ -76,18 +77,20 @@ public class MainActivity extends ActionBarActivity {
                 new Button.OnClickListener(){
                     public void onClick(View v) {
                         if(recording) {
-                            recordButton.setText("Start Recording");
-                            recordButton.setTypeface(null, Typeface.NORMAL);
-                            recordButton.setTextColor(Color.BLACK);
+//                            recordButton.setText("Start Recording");
+//                            recordButton.setTypeface(null, Typeface.NORMAL);
+//                            recordButton.setTextColor(Color.BLACK);
+                            recordButton.setImageResource(R.drawable.bluebutton);
                             // STOP RECORDING //
                             recorder.stop();
                             recorder.reset();
                             playButton.setVisibility(View.VISIBLE);
 
                         } else {
-                            recordButton.setText("Stop Recording");
-                            recordButton.setTypeface(null, Typeface.BOLD);
-                            recordButton.setTextColor(Color.RED);
+//                            recordButton.setText("Stop Recording");
+//                            recordButton.setTypeface(null, Typeface.BOLD);
+//                            recordButton.setTextColor(Color.RED);
+                              recordButton.setImageResource(R.drawable.redbutton);
                             // START RECORDING //
                             try {
                                 recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
