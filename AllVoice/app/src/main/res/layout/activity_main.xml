@@ -9,20 +9,10 @@
     <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/blueButton"
+        android:id="@+id/record"
         android:background="@null"
         android:layout_centerVertical="true"
         android:layout_centerHorizontal="true"
-        android:src="@drawable/bluebutton" />
-
-    <ImageButton
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/redButton"
-        android:background="@null"
-        android:layout_centerVertical="true"
-        android:layout_centerHorizontal="true"
-        android:visibility="invisible"
-        android:src="@drawable/redbutton" />
+        android:src="@drawable/record" />
 
 </RelativeLayout>
