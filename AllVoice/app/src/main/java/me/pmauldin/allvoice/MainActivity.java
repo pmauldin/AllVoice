@@ -3,31 +3,33 @@ package me.pmauldin.allvoice;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.IntentSender;
+import android.media.MediaPlayer;
+import android.media.MediaRecorder;
+import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.ActionBarActivity;
-import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
-import android.media.MediaRecorder;
-import android.media.MediaPlayer;
-import android.util.Log;
-import android.widget.ImageButton;
 import android.widget.EditText;
+import android.widget.ImageButton;
 
 import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
-import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.drive.Drive;
-import com.google.android.gms.drive.DriveApi.DriveContentsResult;
+import com.google.android.gms.drive.DriveApi;
 import com.google.android.gms.drive.MetadataChangeSet;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
@@ -51,13 +53,16 @@ import java.util.Calendar;
     * UPLOAD
 */
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends ActionBarActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
     private static final String LOG_TAG = "Custom";
 
     private static String mFileName = null;
     private static String path = null;
     private static File dir = null;
+    private static String finalPath = null;
     final Context context = this;
+
+    private static int attempts = 0;
 
     private static boolean recording = false;
     private static boolean playing = false;
@@ -65,6 +70,10 @@ public class MainActivity extends ActionBarActivity {
     private static final String DateFormat = "M-d-y-k:m:s";
     private MediaPlayer mPlayer = null;
     private MediaRecorder recorder = null;
+
+    private static final int RC_SIGN_IN = 0;
+    private GoogleApiClient mClient;
+    private boolean mIntentInProgress = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,6 +93,9 @@ public class MainActivity extends ActionBarActivity {
                 Log.e(LOG_TAG, "directory failed");
             }
         }
+        // TODO
+        // CHECK IF GOOGLE DRIVE IS IN PREFS
+        signInToDrive();
 
 
         recordButton.setOnClickListener(
@@ -127,7 +139,29 @@ public class MainActivity extends ActionBarActivity {
         } else if(playing) {
             mPlayer.stop();
         }
+        if(mClient.isConnected()) {
+            mClient.disconnect();
+        }
         super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mClient == null) {
+            // Create the API client and bind it to an instance variable.
+            // We use this instance as the callback for connection and connection
+            // failures.
+            // Since no account name is passed, the user is prompted to choose.
+            mClient = new GoogleApiClient.Builder(this)
+                    .addApi(Drive.API)
+                    .addScope(Drive.SCOPE_FILE)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .build();
+        }
+        // Connect the client. Once connected, the camera is launched.
+        mClient.connect();
     }
 
     @Override
@@ -172,10 +206,15 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void onClick(DialogInterface dialog, int id) {
                 String fileName = input.getText().toString();
+                finalPath = mFileName;
                 if(!fileName.equals("")) {
                    File file = new File(dir.getPath()+"/", path);
-                   file.renameTo(new File(dir.getAbsoluteFile()+"/" + fileName + ".3gp"));
+                   finalPath = dir.getAbsolutePath()+"/" + fileName + ".3gp";
+                   path = fileName + ".3gp";
+                   file.renameTo(new File(finalPath));
                 }
+//                Log.i(LOG_TAG, "path: " + path + " | finalPath: " + finalPath);
+                uploadFiles();
                 dialog.cancel();
             }
         });
@@ -218,6 +257,121 @@ public class MainActivity extends ActionBarActivity {
         } else{
             mPlayer.release();
             mPlayer = null;
+        }
+    }
+
+    public void signInToDrive() {
+        mClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(Drive.API)
+                .addScope(Drive.SCOPE_FILE)
+                .build();
+
+        mClient.connect();
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult result) {
+        if (!mIntentInProgress && result.hasResolution()) {
+            try {
+                Log.d(LOG_TAG, "Connected Failed Try:" + result.toString());
+                mIntentInProgress = true;
+                result.startResolutionForResult(this, RC_SIGN_IN);
+            } catch (IntentSender.SendIntentException e) {
+                Log.d(LOG_TAG, "Connected Failed Catch: " + e.toString());
+                // The intent was canceled before it was sent.  Return to the default
+                // state and attempt to connect to get an updated ConnectionResult.
+                mIntentInProgress = false;
+                mClient.connect();
+            }
+        }
+    }
+
+    @Override
+    public void onConnected(Bundle connectionHint) {
+        // We've resolved any connection errors.  mClient can be used to
+        // access Google APIs on behalf of the user.
+        Log.d(LOG_TAG, "Connected Successfully");
+    }
+
+    @Override
+    public void onConnectionSuspended(int cause) {
+        mClient.connect();
+    }
+
+    private void uploadFiles() {
+        // GOOGLE DRIVE
+        uploadFilesToDrive();
+    }
+
+    private void uploadFilesToDrive() {
+        // Start by creating a new contents, and setting a callback.
+        mClient.connect();
+        if(mClient.isConnected()) {
+            Log.i(LOG_TAG, "Creating new contents.");
+            attempts = 0;
+
+            Drive.DriveApi.newDriveContents(mClient)
+                    .setResultCallback(new ResultCallback<DriveApi.DriveContentsResult>() {
+
+                        @Override
+                        public void onResult(DriveApi.DriveContentsResult result) {
+                            // If the operation was not successful, we cannot do anything
+                            // and must
+                            // fail.
+                            if (!result.getStatus().isSuccess()) {
+                                Log.i(LOG_TAG, "Failed to create new contents.");
+                                return;
+                            }
+                            // Otherwise, we can write our data to the new contents.
+                            Log.i(LOG_TAG, "New contents created.");
+                            File file = new File(finalPath);
+                            // Get an output stream for the contents.
+                            OutputStream outputStream = result.getDriveContents().getOutputStream();
+                            // Write the bitmap data from it.
+                            ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+//                            Log.i(LOG_TAG, "4");
+                            InputStream in = null;
+//                            Log.i(LOG_TAG, "5");
+
+
+                            try {
+                                in = new FileInputStream(file);
+                            } catch (IOException e) {
+                                Log.e(LOG_TAG, e.toString());
+                            }
+
+                            int singleByte;
+                            try {
+                                while ((singleByte = in.read()) != -1) {
+                                    byteStream.write(singleByte);
+                                }
+                            } catch (IOException e) {
+                                Log.e(LOG_TAG, e.toString());
+                            }
+
+                            try {
+                                outputStream.write(byteStream.toByteArray());
+                            } catch (IOException e1) {
+                                Log.i(LOG_TAG, "Unable to write file contents.");
+                            }
+                            // Create the initial metadata - MIME type and title.
+                            MetadataChangeSet metadataChangeSet = new MetadataChangeSet.Builder()
+                                    .setMimeType("video/3gpp").setTitle(path).build();
+
+                            Drive.DriveApi.getRootFolder(mClient)
+                                    .createFile(mClient, metadataChangeSet, result.getDriveContents());
+                        }
+                    });
+        } else {
+            if(attempts < 3) {
+                mClient.connect();
+                attempts++;
+                uploadFiles();
+            } else {
+                Log.e(LOG_TAG, "Not connected :(");
+            }
         }
     }
 

@@ -10,5 +10,7 @@
     <string name="discard">Discard</string>
     <string name="neutral">Preview</string>
     <string name="message">Keep this audio?</string>
+    <string name="title_activity_google_play_services">GooglePlayServicesActivity</string>
+    <string name="title_activity_login">LoginActivity</string>
 
 </resources>
