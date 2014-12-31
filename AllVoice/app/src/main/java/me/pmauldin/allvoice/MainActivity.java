@@ -73,7 +73,7 @@ public class MainActivity extends ActionBarActivity {
 
         recorder = new MediaRecorder();
 
-        final ImageButton recordButton = (ImageButton) findViewById(R.id.blueButton);
+        final ImageButton recordButton = (ImageButton) findViewById(R.id.record);
 
         // CHECK IF DIR EXISTS, AND CREATE IF NOT
         dir = new File(Environment.getExternalStorageDirectory() + "/AllVoice");
@@ -90,14 +90,14 @@ public class MainActivity extends ActionBarActivity {
                 new Button.OnClickListener(){
                     public void onClick(View v) {
                         if(recording) {
-                            recordButton.setImageResource(R.);
+                            recordButton.setImageResource(R.drawable.record);
                             // STOP RECORDING //
                             recorder.stop();
                             recorder.reset();
                             createDialog();
 
                         } else {
-                              recordButton.setImageResource(R.drawable.redbutton);
+                              recordButton.setImageResource(R.drawable.stop);
                             // START RECORDING //
                             try {
                                 recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
@@ -118,6 +118,16 @@ public class MainActivity extends ActionBarActivity {
                 }
         );
 
+    }
+
+    @Override
+    protected void onPause() {
+        if(recording) {
+            recorder.stop();
+        } else if(playing) {
+            mPlayer.stop();
+        }
+        super.onPause();
     }
 
     @Override
