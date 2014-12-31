@@ -22,7 +22,14 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.drive.Drive;
 import com.google.android.gms.drive.DriveApi;
+import com.google.android.gms.drive.DriveFolder;
+import com.google.android.gms.drive.DriveId;
+import com.google.android.gms.drive.Metadata;
+import com.google.android.gms.drive.MetadataBuffer;
 import com.google.android.gms.drive.MetadataChangeSet;
+import com.google.android.gms.drive.query.Filters;
+import com.google.android.gms.drive.query.Query;
+import com.google.android.gms.drive.query.SearchableField;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -44,36 +51,33 @@ import java.util.Calendar;
     * CHECK IF PREFERENCES ALREADY SET; IF NOT, GO TO PREFERENCES SCREEN, ELSE GO TO MAIN
         * If no options are selected for upload, don't allow them to continue
 
-    * POPUP AFTER STOPPING THE RECORDING
-        * Allow Discarding of note
-        * Playback and pausing, restart
-        * Save Button
-        * Generate name based on time/date, and make it editable based on setting
-
     * UPLOAD
+        * GOOGLE DRIVE DONE
 */
 
 public class MainActivity extends ActionBarActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
     private static final String LOG_TAG = "Custom";
 
+    // FILE VARIABLES
     private static String mFileName = null;
     private static String path = null;
     private static File dir = null;
     private static String finalPath = null;
     final Context context = this;
 
-    private static int attempts = 0;
-
+    // VARIABLES FOR RECORDING & PLAYING AUDIO
     private static boolean recording = false;
     private static boolean playing = false;
-
     private static final String DateFormat = "M-d-y-k:m:s";
     private MediaPlayer mPlayer = null;
     private MediaRecorder recorder = null;
 
+    // GOOGLE DRIVE VARIABLES
     private static final int RC_SIGN_IN = 0;
     private GoogleApiClient mClient;
     private boolean mIntentInProgress = false;
+    private static int attempts = 0;
+    private DriveId mFolderDriveId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,7 +100,8 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         // TODO
         // CHECK IF GOOGLE DRIVE IS IN PREFS
         signInToDrive();
-
+        createDriveFolder();
+        Log.i(LOG_TAG, "DRIVE INITIALIZATION SUCCESSFUL");
 
         recordButton.setOnClickListener(
                 new Button.OnClickListener(){
@@ -331,9 +336,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                             OutputStream outputStream = result.getDriveContents().getOutputStream();
                             // Write the bitmap data from it.
                             ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-//                            Log.i(LOG_TAG, "4");
+                            // Log.i(LOG_TAG, "4");
                             InputStream in = null;
-//                            Log.i(LOG_TAG, "5");
+                            // Log.i(LOG_TAG, "5");
 
 
                             try {
@@ -360,8 +365,8 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                             MetadataChangeSet metadataChangeSet = new MetadataChangeSet.Builder()
                                     .setMimeType("video/3gpp").setTitle(path).build();
 
-                            Drive.DriveApi.getRootFolder(mClient)
-                                    .createFile(mClient, metadataChangeSet, result.getDriveContents());
+                            DriveFolder folder = Drive.DriveApi.getFolder(mClient, mFolderDriveId);
+                            folder.createFile(mClient, metadataChangeSet, result.getDriveContents());
                         }
                     });
         } else {
@@ -374,5 +379,67 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
             }
         }
     }
+
+    public void createDriveFolder() {
+        Query q = new Query.Builder().addFilter(Filters.contains(SearchableField.TITLE, "AllVoice")).build();
+        Drive.DriveApi.query(mClient, q)
+                .setResultCallback(queryCallback);
+    }
+
+    ResultCallback<DriveFolder.DriveFolderResult> folderCreatedCallback = new
+            ResultCallback<DriveFolder.DriveFolderResult>() {
+                @Override
+                public void onResult(DriveFolder.DriveFolderResult result) {
+                    if (!result.getStatus().isSuccess()) {
+                        Log.i(LOG_TAG, "Error while trying to create the folder");
+                        return;
+                    }
+                    mFolderDriveId = result.getDriveFolder().getDriveId();
+                    Log.i(LOG_TAG, "Created a folder: " + mFolderDriveId);
+                }
+            };
+
+    ResultCallback<DriveApi.MetadataBufferResult> queryCallback = new
+            ResultCallback<DriveApi.MetadataBufferResult>() {
+                public void onResult(DriveApi.MetadataBufferResult result) {
+                    if(result.getStatus().isSuccess()) {
+                        MetadataBuffer mdb = null;
+                        try {
+                            mdb = result.getMetadataBuffer();
+                            if(mdb == null) {
+                                Log.i(LOG_TAG, "Need to create folder");
+                                MetadataChangeSet changeSet = new MetadataChangeSet.Builder()
+                                        .setTitle("AllVoice").build();
+
+                                Drive.DriveApi.getRootFolder(mClient).createFolder(mClient, changeSet).setResultCallback(folderCreatedCallback);
+                            } else {
+                                boolean check = false;
+                                for(Metadata md : mdb) {
+                                    check = true;
+                                    if(md == null) {
+                                        Log.i(LOG_TAG, "Need to create folder");
+                                        MetadataChangeSet changeSet = new MetadataChangeSet.Builder()
+                                                .setTitle("AllVoice").build();
+
+                                        Drive.DriveApi.getRootFolder(mClient).createFolder(mClient, changeSet).setResultCallback(folderCreatedCallback);
+                                        continue;
+                                    }
+                                    Log.i(LOG_TAG, "Folder already exists");
+                                    mFolderDriveId = md.getDriveId();
+                                }
+                                if(!check) {
+                                    Log.i(LOG_TAG, "Need to create folder");
+                                    MetadataChangeSet changeSet = new MetadataChangeSet.Builder()
+                                            .setTitle("AllVoice").build();
+
+                                    Drive.DriveApi.getRootFolder(mClient).createFolder(mClient, changeSet).setResultCallback(folderCreatedCallback);
+                                }
+                            }
+                        } finally {
+                            if(mdb != null) mdb.close();
+                        }
+                    }
+                }
+            };
 
 }
