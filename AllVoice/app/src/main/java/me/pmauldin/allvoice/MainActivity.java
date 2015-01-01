@@ -56,9 +56,10 @@ import java.util.Calendar;
 */
 
 public class MainActivity extends ActionBarActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
-    private static final String LOG_TAG = "Custom";
+    private static final String LOG_TAG = "Local";
 
     // FILE VARIABLES
+    private static String fileType = ".3gp";
     private static String mFileName = null;
     private static String path = null;
     private static File dir = null;
@@ -101,7 +102,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         // CHECK IF GOOGLE DRIVE IS IN PREFS
         signInToDrive();
         createDriveFolder();
-        Log.i(LOG_TAG, "DRIVE INITIALIZATION SUCCESSFUL");
+        Log.i("Google", "GOOGLE DRIVE INITIALIZATION SUCCESSFUL");
 
         recordButton.setOnClickListener(
                 new Button.OnClickListener(){
@@ -120,7 +121,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                                 recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                                 recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-                                path = getCurrentTimeFormat(DateFormat) + ".3gp";
+                                path = getCurrentTimeFormat(DateFormat) + fileType;
                                 mFileName = dir.getAbsolutePath() + "/" + path;
                                 recorder.setOutputFile(mFileName);
                                 recorder.prepare();
@@ -214,8 +215,8 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                 finalPath = mFileName;
                 if(!fileName.equals("")) {
                    File file = new File(dir.getPath()+"/", path);
-                   finalPath = dir.getAbsolutePath()+"/" + fileName + ".3gp";
-                   path = fileName + ".3gp";
+                   finalPath = dir.getAbsolutePath()+"/" + fileName + fileType;
+                   path = fileName + fileType;
                    file.renameTo(new File(finalPath));
                 }
 //                Log.i(LOG_TAG, "path: " + path + " | finalPath: " + finalPath);
@@ -280,11 +281,11 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     public void onConnectionFailed(ConnectionResult result) {
         if (!mIntentInProgress && result.hasResolution()) {
             try {
-                Log.d(LOG_TAG, "Connected Failed Try:" + result.toString());
+                Log.d("Google", "Connected Failed Try:" + result.toString());
                 mIntentInProgress = true;
                 result.startResolutionForResult(this, RC_SIGN_IN);
             } catch (IntentSender.SendIntentException e) {
-                Log.d(LOG_TAG, "Connected Failed Catch: " + e.toString());
+                Log.d("Google", "Connected Failed Catch: " + e.toString());
                 // The intent was canceled before it was sent.  Return to the default
                 // state and attempt to connect to get an updated ConnectionResult.
                 mIntentInProgress = false;
@@ -297,7 +298,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     public void onConnected(Bundle connectionHint) {
         // We've resolved any connection errors.  mClient can be used to
         // access Google APIs on behalf of the user.
-        Log.d(LOG_TAG, "Connected Successfully");
+        Log.d("Google", "Connected Successfully");
     }
 
     @Override
@@ -314,7 +315,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         // Start by creating a new contents, and setting a callback.
         mClient.connect();
         if(mClient.isConnected()) {
-            Log.i(LOG_TAG, "Creating new contents.");
+            Log.i("Google", "Creating new contents.");
             attempts = 0;
 
             Drive.DriveApi.newDriveContents(mClient)
@@ -326,25 +327,22 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                             // and must
                             // fail.
                             if (!result.getStatus().isSuccess()) {
-                                Log.i(LOG_TAG, "Failed to create new contents.");
+                                Log.i("Google", "Failed to create new contents.");
                                 return;
                             }
                             // Otherwise, we can write our data to the new contents.
-                            Log.i(LOG_TAG, "New contents created.");
+                            Log.i("Google", "New contents created.");
                             File file = new File(finalPath);
                             // Get an output stream for the contents.
                             OutputStream outputStream = result.getDriveContents().getOutputStream();
                             // Write the bitmap data from it.
                             ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-                            // Log.i(LOG_TAG, "4");
                             InputStream in = null;
-                            // Log.i(LOG_TAG, "5");
-
 
                             try {
                                 in = new FileInputStream(file);
                             } catch (IOException e) {
-                                Log.e(LOG_TAG, e.toString());
+                                Log.e("Google", e.toString());
                             }
 
                             int singleByte;
@@ -353,13 +351,13 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                                     byteStream.write(singleByte);
                                 }
                             } catch (IOException e) {
-                                Log.e(LOG_TAG, e.toString());
+                                Log.e("Google", e.toString());
                             }
 
                             try {
                                 outputStream.write(byteStream.toByteArray());
                             } catch (IOException e1) {
-                                Log.i(LOG_TAG, "Unable to write file contents.");
+                                Log.i("Google", "Unable to write file contents.");
                             }
                             // Create the initial metadata - MIME type and title.
                             MetadataChangeSet metadataChangeSet = new MetadataChangeSet.Builder()
@@ -375,7 +373,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                 attempts++;
                 uploadFiles();
             } else {
-                Log.e(LOG_TAG, "Not connected :(");
+                Log.e("Google", "Not connected :(");
             }
         }
     }
@@ -391,11 +389,11 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                 @Override
                 public void onResult(DriveFolder.DriveFolderResult result) {
                     if (!result.getStatus().isSuccess()) {
-                        Log.i(LOG_TAG, "Error while trying to create the folder");
+                        Log.i("Google", "Error while trying to create the folder");
                         return;
                     }
                     mFolderDriveId = result.getDriveFolder().getDriveId();
-                    Log.i(LOG_TAG, "Created a folder: " + mFolderDriveId);
+                    Log.i("Google", "Created a folder: " + mFolderDriveId);
                 }
             };
 
@@ -407,7 +405,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                         try {
                             mdb = result.getMetadataBuffer();
                             if(mdb == null) {
-                                Log.i(LOG_TAG, "Need to create folder");
+                                Log.i("Google", "Need to create folder");
                                 MetadataChangeSet changeSet = new MetadataChangeSet.Builder()
                                         .setTitle("AllVoice").build();
 
@@ -417,18 +415,18 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                                 for(Metadata md : mdb) {
                                     check = true;
                                     if(md == null) {
-                                        Log.i(LOG_TAG, "Need to create folder");
+                                        Log.i("Google", "Need to create folder");
                                         MetadataChangeSet changeSet = new MetadataChangeSet.Builder()
                                                 .setTitle("AllVoice").build();
 
                                         Drive.DriveApi.getRootFolder(mClient).createFolder(mClient, changeSet).setResultCallback(folderCreatedCallback);
                                         continue;
                                     }
-                                    Log.i(LOG_TAG, "Folder already exists");
+                                    Log.i("Google", "Folder already exists");
                                     mFolderDriveId = md.getDriveId();
                                 }
                                 if(!check) {
-                                    Log.i(LOG_TAG, "Need to create folder");
+                                    Log.i("Google", "Need to create folder");
                                     MetadataChangeSet changeSet = new MetadataChangeSet.Builder()
                                             .setTitle("AllVoice").build();
 
