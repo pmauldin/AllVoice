@@ -12,5 +12,16 @@
     <string name="message">Keep this audio?</string>
     <string name="title_activity_google_play_services">GooglePlayServicesActivity</string>
     <string name="title_activity_login">LoginActivity</string>
+    <string name="pref_local">Save audio locally?</string>
+    <string name="pref_drive">Google Drive</string>
+    <string name="pref_services">Services to upload to</string>
+    <string name="pref_dropbox">Dropbox</string>
+    <string name="pref_box">Box</string>
+    <string name="pref_onedrive">OneDrive</string>
+    <string name="pref_storage">Storage</string>
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="pref_formatDialogTitle">Choose Format to save audio in</string>
+    <string name="pref_formatTitle">Output Format</string>
+    <string name="pref_format_3gp">.3gp</string>
 
 </resources>

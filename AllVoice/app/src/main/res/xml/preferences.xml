@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory
+        android:title="@string/pref_storage"
+        android:key="pref_storage">
+        <CheckBoxPreference
+            android:key="pref_local"
+            android:title="@string/pref_local"
+            android:defaultValue="true" />
+        <ListPreference
+            android:key="pref_format"
+            android:title="@string/pref_formatTitle"
+            android:dialogTitle="@string/pref_formatDialogTitle"
+            android:summary="@string/pref_format_3gp"
+            android:entries="@array/pref_format_entries"
+            android:entryValues="@array/pref_format_values"
+            android:defaultValue="@string/pref_format_3gp"
+            />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:title="@string/pref_services"
+        android:key="pref_services">
+        <CheckBoxPreference
+            android:key="pref_drive"
+            android:title="@string/pref_drive"
+            android:defaultValue="false" />
+        <CheckBoxPreference
+            android:key="pref_dropbox"
+            android:title="@string/pref_dropbox"
+            android:defaultValue="false" />
+        <CheckBoxPreference
+            android:key="pref_box"
+            android:title="@string/pref_box"
+            android:defaultValue="false" />
+        <CheckBoxPreference
+            android:key="pref_onedrive"
+            android:title="@string/pref_onedrive"
+            android:defaultValue="false" />
+    </PreferenceCategory>
+</PreferenceScreen>

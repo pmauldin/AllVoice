@@ -2,6 +2,9 @@
   <dictionary name="Peter">
     <words>
       <w>allvoice</w>
+      <w>dropbox</w>
+      <w>gdrive</w>
+      <w>onedrive</w>
     </words>
   </dictionary>
 </component>

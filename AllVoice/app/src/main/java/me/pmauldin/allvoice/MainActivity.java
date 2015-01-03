@@ -3,11 +3,14 @@ package me.pmauldin.allvoice;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.IntentSender;
+import android.content.SharedPreferences;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Environment;
+import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.Menu;
@@ -73,12 +76,25 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     private MediaPlayer mPlayer = null;
     private MediaRecorder recorder = null;
 
-    // GOOGLE DRIVE VARIABLES
+    // CLOUD STORAGE VARIABLES
+    private static SharedPreferences sharedPrefs;
+    // GOOGLE DRIVE
+    public static boolean drive = false;
     private static final int RC_SIGN_IN = 0;
     private GoogleApiClient mClient;
     private boolean mIntentInProgress = false;
     private static int attempts = 0;
     private DriveId mFolderDriveId;
+
+    // DROPBOX
+    public static boolean dropbox = false;
+
+    // BOX
+    public static boolean box = false;
+
+    // ONEDRIVE
+    public static boolean onedrive = false;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,11 +114,13 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                 Log.e(LOG_TAG, "directory failed");
             }
         }
-        // TODO
-        // CHECK IF GOOGLE DRIVE IS IN PREFS
-        signInToDrive();
-        createDriveFolder();
-        Log.i("Google", "GOOGLE DRIVE INITIALIZATION SUCCESSFUL");
+
+        // SETTING AND GETTING PREFERENCES
+        PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
+        sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+
+        // SIGN IN TO SERVICES
+        initializeServices();
 
         recordButton.setOnClickListener(
                 new Button.OnClickListener(){
@@ -145,8 +163,8 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         } else if(playing) {
             mPlayer.stop();
         }
-        if(mClient.isConnected()) {
-            mClient.disconnect();
+        if(drive && mClient.isConnected()) {
+             mClient.disconnect();
         }
         super.onPause();
     }
@@ -154,20 +172,25 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     @Override
     protected void onResume() {
         super.onResume();
-        if (mClient == null) {
-            // Create the API client and bind it to an instance variable.
-            // We use this instance as the callback for connection and connection
-            // failures.
-            // Since no account name is passed, the user is prompted to choose.
-            mClient = new GoogleApiClient.Builder(this)
-                    .addApi(Drive.API)
-                    .addScope(Drive.SCOPE_FILE)
-                    .addConnectionCallbacks(this)
-                    .addOnConnectionFailedListener(this)
-                    .build();
+
+        setPrefs();
+        // GOOGLE DRIVE
+        if(drive) {
+            if (mClient == null) {
+                // Create the API client and bind it to an instance variable.
+                // We use this instance as the callback for connection and connection
+                // failures.
+                // Since no account name is passed, the user is prompted to choose.
+                mClient = new GoogleApiClient.Builder(this)
+                        .addApi(Drive.API)
+                        .addScope(Drive.SCOPE_FILE)
+                        .addConnectionCallbacks(this)
+                        .addOnConnectionFailedListener(this)
+                        .build();
+            }
+            // Connect the client. Once connected, the camera is launched.
+            mClient.connect();
         }
-        // Connect the client. Once connected, the camera is launched.
-        mClient.connect();
     }
 
     @Override
@@ -186,7 +209,8 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
-            return true;
+            Intent i = new Intent(getApplicationContext(), SettingsActivity.class);
+            startActivity(i);
         }
 
         return super.onOptionsItemSelected(item);
@@ -217,10 +241,12 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                    File file = new File(dir.getPath()+"/", path);
                    finalPath = dir.getAbsolutePath()+"/" + fileName + fileType;
                    path = fileName + fileType;
-                   file.renameTo(new File(finalPath));
+                   boolean changed = file.renameTo(new File(finalPath));
+                   if(!changed) {
+                       Log.i(LOG_TAG, "An error occurred while renaming file");
+                   }
                 }
-//                Log.i(LOG_TAG, "path: " + path + " | finalPath: " + finalPath);
-                uploadFiles();
+                upload();
                 dialog.cancel();
             }
         });
@@ -229,6 +255,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
             public void onClick(DialogInterface dialog, int id) {
                 File file = new File(dir.getPath()+"/", path);
                 boolean deleted = file.delete();
+                if(!deleted) {
+                    Log.i(LOG_TAG, "An error occurred while discarding the file");
+                }
                 dialog.cancel();
             }
         });
@@ -264,6 +293,60 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
             mPlayer.release();
             mPlayer = null;
         }
+    }
+
+
+    // CLOUD STORAGE //
+    private void initializeServices() {
+        setPrefs();
+        // GOOGLE DRIVE
+        if(drive) {
+            signInToDrive();
+            createDriveFolder();
+            Log.i(LOG_TAG, "GOOGLE DRIVE INITIALIZATION SUCCESSFUL " + drive);
+        }
+
+        // DROPBOX
+        if(dropbox) {
+            Log.i(LOG_TAG, "DROPBOX INITIALIZATION SUCCESSFUL");
+        }
+
+        // BOX
+        if(box) {
+            Log.i(LOG_TAG, "BOX INITIALIZATION SUCCESSFUL");
+        }
+
+        // ONEDRIVE
+        if(onedrive) {
+            Log.i(LOG_TAG, "ONEDRIVE INITIALIZATION SUCCESSFUL");
+        }
+    }
+
+    private void setPrefs() {
+        drive = sharedPrefs.getBoolean("pref_drive", false);
+        dropbox = sharedPrefs.getBoolean("pref_dropbox", false);
+        box = sharedPrefs.getBoolean("pref_box", false);
+        onedrive = sharedPrefs.getBoolean("pref_onedrive", false);
+    }
+
+    private void upload() {
+        // GOOGLE DRIVE
+        if(drive) {
+            uploadFileToDrive();
+        }
+
+        if(dropbox) {
+
+        }
+
+        if(box) {
+
+        }
+
+        if(onedrive) {
+
+        }
+
     }
 
     public void signInToDrive() {
@@ -306,12 +389,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         mClient.connect();
     }
 
-    private void uploadFiles() {
-        // GOOGLE DRIVE
-        uploadFilesToDrive();
-    }
-
-    private void uploadFilesToDrive() {
+    private void uploadFileToDrive() {
         // Start by creating a new contents, and setting a callback.
         mClient.connect();
         if(mClient.isConnected()) {
@@ -371,7 +449,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
             if(attempts < 3) {
                 mClient.connect();
                 attempts++;
-                uploadFiles();
+                uploadFileToDrive();
             } else {
                 Log.e("Google", "Not connected :(");
             }
