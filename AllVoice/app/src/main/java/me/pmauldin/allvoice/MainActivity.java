@@ -19,6 +19,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -44,18 +45,11 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 /* TODO
-    * CREATE PREFERENCES SCREEN -
-        * Checkboxes
-            * Google Drive, DropBox, Box, OneDrive(?)
-            * Also Save Notes locally?
-            * Auto-name or custom?
-            * Stop Recording when app is in background?
-
-    * CHECK IF PREFERENCES ALREADY SET; IF NOT, GO TO PREFERENCES SCREEN, ELSE GO TO MAIN
-        * If no options are selected for upload, don't allow them to continue
-
     * UPLOAD
-        * GOOGLE DRIVE DONE
+        * GOOGLE DRIVE - DONE
+        * DROPBOX
+        * BOX
+        * ONEDRIVE
 */
 
 public class MainActivity extends ActionBarActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
@@ -70,6 +64,8 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     private static File dirTemp = null;
     private static String finalPath = null;
     final Context context = this;
+
+    private static String toastText= "Please check at least one option";
 
     // VARIABLES FOR RECORDING & PLAYING AUDIO
     private static boolean recording = false;
@@ -112,6 +108,16 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
         sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
         setPrefs();
+
+        // IF NO PREFS SET, GO TO SETTINGS SCREEN
+        if(!(local || drive || dropbox || box || onedrive)) {
+            int duration = Toast.LENGTH_SHORT;
+            Toast toast = Toast.makeText(context, toastText, duration);
+            toast.show();
+
+            Intent i = new Intent(getApplicationContext(), SettingsActivity.class);
+            startActivity(i);
+        }
 
         // CHECK IF DIR EXISTS, AND CREATE IF NOT
         dir = new File(Environment.getExternalStorageDirectory() + "/AllVoice");
@@ -201,6 +207,16 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     @Override
     protected void onResume() {
         super.onResume();
+        setPrefs();
+
+        if(!(local || drive || dropbox || box || onedrive)) {
+            int duration = Toast.LENGTH_SHORT;
+            Toast toast = Toast.makeText(context, toastText, duration);
+            toast.show();
+
+            Intent i = new Intent(getApplicationContext(), SettingsActivity.class);
+            startActivity(i);
+        }
 
         if(!local) {
             dirTemp = new File(Environment.getExternalStorageDirectory() + "/AllVoiceTemp");
@@ -213,7 +229,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
             }
         }
 
-        setPrefs();
+
         // GOOGLE DRIVE
         if(drive) {
             if (mClient == null) {
@@ -347,6 +363,23 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         }
     }
 
+    public static boolean deleteDirectory(File path) {
+        if( path.exists() ) {
+            File[] files = path.listFiles();
+            if (files == null) {
+                return true;
+            }
+            for(int i=0; i<files.length; i++) {
+                if(files[i].isDirectory()) {
+                    deleteDirectory(files[i]);
+                }
+                else {
+                    files[i].delete();
+                }
+            }
+        }
+        return( path.delete() );
+    }
 
     // CLOUD STORAGE //
     private void initializeServices() {
@@ -450,6 +483,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         }
     }
 
+    // GOOGLE DRIVE INTEGRATION
     @Override
     public void onConnected(Bundle connectionHint) {
         // We've resolved any connection errors.  mClient can be used to
@@ -592,22 +626,6 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                 }
             };
 
-    public static boolean deleteDirectory(File path) {
-        if( path.exists() ) {
-            File[] files = path.listFiles();
-            if (files == null) {
-                return true;
-            }
-            for(int i=0; i<files.length; i++) {
-                if(files[i].isDirectory()) {
-                    deleteDirectory(files[i]);
-                }
-                else {
-                    files[i].delete();
-                }
-            }
-        }
-        return( path.delete() );
-    }
+    // END GOOGLE DRIVE INTEGRATION
 
 }
