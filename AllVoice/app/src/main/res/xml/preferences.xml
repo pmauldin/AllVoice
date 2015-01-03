@@ -12,10 +12,10 @@
             android:key="pref_format"
             android:title="@string/pref_formatTitle"
             android:dialogTitle="@string/pref_formatDialogTitle"
-            android:summary="@string/pref_format_3gp"
+            android:summary="%s"
             android:entries="@array/pref_format_entries"
             android:entryValues="@array/pref_format_values"
-            android:defaultValue="@string/pref_format_3gp"
+            android:defaultValue="@string/pref_format_mp3"
             />
     </PreferenceCategory>
 

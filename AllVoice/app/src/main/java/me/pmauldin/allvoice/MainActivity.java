@@ -62,10 +62,12 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     private static final String LOG_TAG = "Local";
 
     // FILE VARIABLES
-    private static String fileType = ".3gp";
+    private static Boolean local = true;
+    private static String fileType = "";
     private static String mFileName = null;
-    private static String path = null;
+    private static String name = null;
     private static File dir = null;
+    private static File dirTemp = null;
     private static String finalPath = null;
     final Context context = this;
 
@@ -78,8 +80,10 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
     // CLOUD STORAGE VARIABLES
     private static SharedPreferences sharedPrefs;
+
     // GOOGLE DRIVE
-    public static boolean drive = false;
+    private static String format = "mp3";
+    private static boolean drive = false;
     private static final int RC_SIGN_IN = 0;
     private GoogleApiClient mClient;
     private boolean mIntentInProgress = false;
@@ -87,14 +91,13 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     private DriveId mFolderDriveId;
 
     // DROPBOX
-    public static boolean dropbox = false;
+    private static boolean dropbox = false;
 
     // BOX
-    public static boolean box = false;
+    private static boolean box = false;
 
     // ONEDRIVE
-    public static boolean onedrive = false;
-
+    private static boolean onedrive = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,19 +108,34 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
         final ImageButton recordButton = (ImageButton) findViewById(R.id.record);
 
+        // SETTING AND GETTING PREFERENCES
+        PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
+        sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+        setPrefs();
+
         // CHECK IF DIR EXISTS, AND CREATE IF NOT
         dir = new File(Environment.getExternalStorageDirectory() + "/AllVoice");
         if(!(dir.exists() && dir.isDirectory())) {
+
             try {
+
                 dir.mkdirs();
             } catch (Exception e) {
                 Log.e(LOG_TAG, "directory failed");
             }
         }
 
-        // SETTING AND GETTING PREFERENCES
-        PreferenceManager.setDefaultValues(this, R.xml.preferences, false);
-        sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+        // CREATE TEMP DIR
+        if(!local) {
+            dirTemp = new File(Environment.getExternalStorageDirectory() + "/AllVoiceTemp");
+            if(!(dirTemp.exists() && dirTemp.isDirectory())) {
+                try {
+                    dirTemp.mkdirs();
+                } catch (Exception e) {
+                    Log.e(LOG_TAG, "temp directory failed");
+                }
+            }
+        }
 
         // SIGN IN TO SERVICES
         initializeServices();
@@ -139,9 +157,15 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                                 recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                                 recorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-                                path = getCurrentTimeFormat(DateFormat) + fileType;
-                                mFileName = dir.getAbsolutePath() + "/" + path;
+                                name = getCurrentTimeFormat(DateFormat) + fileType;
+                                if(local) {
+                                    mFileName = dir.getAbsolutePath() + "/" + name;
+                                } else {
+                                    mFileName = dirTemp.getAbsolutePath() + "/" + name;
+                                }
+                                Log.i(LOG_TAG, mFileName);
                                 recorder.setOutputFile(mFileName);
+                                Log.i(LOG_TAG, "?");
                                 recorder.prepare();
                                 recorder.start();
                             } catch (IOException e) {
@@ -163,8 +187,13 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         } else if(playing) {
             mPlayer.stop();
         }
+
         if(drive && mClient.isConnected()) {
              mClient.disconnect();
+        }
+
+        if(!local) {
+            deleteDirectory(dirTemp);
         }
         super.onPause();
     }
@@ -172,6 +201,17 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     @Override
     protected void onResume() {
         super.onResume();
+
+        if(!local) {
+            dirTemp = new File(Environment.getExternalStorageDirectory() + "/AllVoiceTemp");
+            if(!(dirTemp.exists() && dirTemp.isDirectory())) {
+                try {
+                    dirTemp.mkdirs();
+                } catch (Exception e) {
+                    Log.e(LOG_TAG, "temp directory failed");
+                }
+            }
+        }
 
         setPrefs();
         // GOOGLE DRIVE
@@ -229,7 +269,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         builder.setCancelable(false);
 
         final EditText input = new EditText(this);
-        input.setHint(path);
+        input.setHint(name);
         builder.setView(input);
 
         builder.setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
@@ -238,9 +278,15 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                 String fileName = input.getText().toString();
                 finalPath = mFileName;
                 if(!fileName.equals("")) {
-                   File file = new File(dir.getPath()+"/", path);
-                   finalPath = dir.getAbsolutePath()+"/" + fileName + fileType;
-                   path = fileName + fileType;
+                   File file;
+                   if(local) {
+                       file = new File(dir.getPath()+"/", name);
+                       finalPath = dir.getAbsolutePath()+"/" + fileName + fileType;
+                   } else {
+                       file = new File(dirTemp.getPath()+"/", name);
+                       finalPath = dirTemp.getAbsolutePath()+"/" + fileName + fileType;
+                   }
+                   name = fileName + fileType;
                    boolean changed = file.renameTo(new File(finalPath));
                    if(!changed) {
                        Log.i(LOG_TAG, "An error occurred while renaming file");
@@ -253,7 +299,13 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         builder.setNegativeButton(R.string.discard, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int id) {
-                File file = new File(dir.getPath()+"/", path);
+                File file;
+                if(local) {
+                    file = new File(dir.getPath()+"/", name);
+                } else {
+                    file = new File(dirTemp.getPath()+"/", name);
+                }
+
                 boolean deleted = file.delete();
                 if(!deleted) {
                     Log.i(LOG_TAG, "An error occurred while discarding the file");
@@ -327,6 +379,27 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         dropbox = sharedPrefs.getBoolean("pref_dropbox", false);
         box = sharedPrefs.getBoolean("pref_box", false);
         onedrive = sharedPrefs.getBoolean("pref_onedrive", false);
+        fileType = sharedPrefs.getString("pref_format", ".mp3");
+        local = sharedPrefs.getBoolean("pref_local", true);
+
+        switch (fileType) {
+            case ".3gp":
+                format = "video/3gpp";
+                break;
+            case ".mp3":
+                format = "audio/mpeg";
+                break;
+            case ".mp4":
+                format = "audio/mp4";
+                break;
+            case ".flac":
+                format = "audio/ogg";
+                break;
+            default:
+                format = "audio/mpeg";
+                break;
+        }
+
     }
 
     private void upload() {
@@ -438,8 +511,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                                 Log.i("Google", "Unable to write file contents.");
                             }
                             // Create the initial metadata - MIME type and title.
+
                             MetadataChangeSet metadataChangeSet = new MetadataChangeSet.Builder()
-                                    .setMimeType("video/3gpp").setTitle(path).build();
+                                    .setMimeType(format).setTitle(name).build();
 
                             DriveFolder folder = Drive.DriveApi.getFolder(mClient, mFolderDriveId);
                             folder.createFile(mClient, metadataChangeSet, result.getDriveContents());
@@ -517,5 +591,23 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                     }
                 }
             };
+
+    public static boolean deleteDirectory(File path) {
+        if( path.exists() ) {
+            File[] files = path.listFiles();
+            if (files == null) {
+                return true;
+            }
+            for(int i=0; i<files.length; i++) {
+                if(files[i].isDirectory()) {
+                    deleteDirectory(files[i]);
+                }
+                else {
+                    files[i].delete();
+                }
+            }
+        }
+        return( path.delete() );
+    }
 
 }

@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="pref_format_entries">
-        <item>.3gp</item>
+        <item>MP3</item>
+        <item>3GPP</item>
+        <item>MP4</item>
+        <item>FLAC</item>
     </string-array>
     <string-array name="pref_format_values">
+        <item>.mp3</item>
         <item>.3gp</item>
+        <item>.mp4</item>
+        <item>.flac</item>
     </string-array>
 </resources>
