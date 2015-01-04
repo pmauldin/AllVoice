@@ -21,6 +21,10 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.Toast;
 
+import com.dropbox.client2.DropboxAPI;
+import com.dropbox.client2.android.AndroidAuthSession;
+import com.dropbox.client2.session.AppKeyPair;
+import com.dropbox.client2.session.Session;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
@@ -46,7 +50,6 @@ import java.util.Calendar;
 
 /* TODO
     * UPLOAD
-        * GOOGLE DRIVE - DONE
         * DROPBOX
         * BOX
         * ONEDRIVE
@@ -88,6 +91,10 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
     // DROPBOX
     private static boolean dropbox = false;
+    private static final String APP_KEY = "c00moo0mcy4htjh";
+    private static final String APP_SECRET = "gujtifmjcfvt7bk";
+    final static private Session.AccessType ACCESS_TYPE = Session.AccessType.APP_FOLDER;
+    private DropboxAPI<AndroidAuthSession> mDBApi;
 
     // BOX
     private static boolean box = false;
@@ -247,6 +254,21 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
             // Connect the client. Once connected, the camera is launched.
             mClient.connect();
         }
+
+        // DROPBOX
+        if(dropbox) {
+            if (mDBApi.getSession().authenticationSuccessful()) {
+                try {
+                    // Required to complete auth, sets the access token on the session
+                    mDBApi.getSession().finishAuthentication();
+
+                    String accessToken = mDBApi.getSession().getOAuth2AccessToken();
+                    sharedPrefs.edit().putString("dropbox_token", accessToken);
+                } catch (IllegalStateException e) {
+                    Log.i(LOG_TAG, "Error authenticating dropbox", e);
+                }
+            }
+        }
     }
 
     @Override
@@ -384,6 +406,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     // CLOUD STORAGE //
     private void initializeServices() {
         setPrefs();
+
         // GOOGLE DRIVE
         if(drive) {
             signInToDrive();
@@ -393,6 +416,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
         // DROPBOX
         if(dropbox) {
+            signIntoDropbox();
             Log.i(LOG_TAG, "DROPBOX INITIALIZATION SUCCESSFUL");
         }
 
@@ -628,4 +652,12 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
     // END GOOGLE DRIVE INTEGRATION
 
+
+    // BEGIN DROPBOX INTEGRATION
+    private void signIntoDropbox() {
+        AppKeyPair appKeys = new AppKeyPair(APP_KEY, APP_SECRET);
+        AndroidAuthSession session = new AndroidAuthSession(appKeys, ACCESS_TYPE);
+        mDBApi = new DropboxAPI<AndroidAuthSession>(session);
+        mDBApi.getSession().startOAuth2Authentication(context);
+    }
 }
