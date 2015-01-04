@@ -23,8 +23,9 @@ import android.widget.Toast;
 
 import com.dropbox.client2.DropboxAPI;
 import com.dropbox.client2.android.AndroidAuthSession;
+import com.dropbox.client2.exception.DropboxException;
+import com.dropbox.client2.session.AccessTokenPair;
 import com.dropbox.client2.session.AppKeyPair;
-import com.dropbox.client2.session.Session;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
@@ -42,6 +43,7 @@ import com.google.android.gms.drive.query.SearchableField;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -73,7 +75,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     // VARIABLES FOR RECORDING & PLAYING AUDIO
     private static boolean recording = false;
     private static boolean playing = false;
-    private static final String DateFormat = "M-d-y-k:m:s";
+    private static final String DateFormat = "M_d_y-k-m-s";
     private MediaPlayer mPlayer = null;
     private MediaRecorder recorder = null;
 
@@ -91,9 +93,12 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
     // DROPBOX
     private static boolean dropbox = false;
+    private static boolean loggedInToDropbox = false;
     private static final String APP_KEY = "c00moo0mcy4htjh";
     private static final String APP_SECRET = "gujtifmjcfvt7bk";
-    final static private Session.AccessType ACCESS_TYPE = Session.AccessType.APP_FOLDER;
+    private static final String ACCOUNT_PREFS_NAME = "prefs";
+    private static final String ACCESS_KEY_NAME = "ACCESS_KEY";
+    private static final String ACCESS_SECRET_NAME = "ACCESS_SECRET";
     private DropboxAPI<AndroidAuthSession> mDBApi;
 
     // BOX
@@ -178,7 +183,6 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                                 }
                                 Log.i(LOG_TAG, mFileName);
                                 recorder.setOutputFile(mFileName);
-                                Log.i(LOG_TAG, "?");
                                 recorder.prepare();
                                 recorder.start();
                             } catch (IOException e) {
@@ -257,13 +261,16 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
         // DROPBOX
         if(dropbox) {
-            if (mDBApi.getSession().authenticationSuccessful()) {
+            if(!loggedInToDropbox) {
+                signInToDrive();
+            }
+            AndroidAuthSession session = mDBApi.getSession();
+
+            if (session.authenticationSuccessful()) {
                 try {
                     // Required to complete auth, sets the access token on the session
-                    mDBApi.getSession().finishAuthentication();
-
-                    String accessToken = mDBApi.getSession().getOAuth2AccessToken();
-                    sharedPrefs.edit().putString("dropbox_token", accessToken);
+                    session.finishAuthentication();
+                    storeAuth(session);
                 } catch (IllegalStateException e) {
                     Log.i(LOG_TAG, "Error authenticating dropbox", e);
                 }
@@ -416,7 +423,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
         // DROPBOX
         if(dropbox) {
-            signIntoDropbox();
+            signInToDropbox();
             Log.i(LOG_TAG, "DROPBOX INITIALIZATION SUCCESSFUL");
         }
 
@@ -466,7 +473,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         }
 
         if(dropbox) {
-
+            uploadFileToDropbox();
         }
 
         if(box) {
@@ -653,11 +660,81 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     // END GOOGLE DRIVE INTEGRATION
 
 
-    // BEGIN DROPBOX INTEGRATION
-    private void signIntoDropbox() {
-        AppKeyPair appKeys = new AppKeyPair(APP_KEY, APP_SECRET);
-        AndroidAuthSession session = new AndroidAuthSession(appKeys, ACCESS_TYPE);
+    // BEGIN DROPBOX INTEGRATION //
+    private void signInToDropbox() {
+        loggedInToDropbox = true;
+        AndroidAuthSession session = buildSession();
         mDBApi = new DropboxAPI<AndroidAuthSession>(session);
         mDBApi.getSession().startOAuth2Authentication(context);
     }
+
+    private AndroidAuthSession buildSession() {
+        AppKeyPair appKeyPair = new AppKeyPair(APP_KEY, APP_SECRET);
+
+        AndroidAuthSession session = new AndroidAuthSession(appKeyPair);
+        loadAuth(session);
+        return session;
+    }
+
+    private void loadAuth(AndroidAuthSession session) {
+        SharedPreferences prefs = getSharedPreferences(ACCOUNT_PREFS_NAME, 0);
+        String key = prefs.getString(ACCESS_KEY_NAME, null);
+        String secret = prefs.getString(ACCESS_SECRET_NAME, null);
+        if (key == null || secret == null || key.length() == 0 || secret.length() == 0) return;
+
+        if (key.equals("oauth2:")) {
+            // If the key is set to "oauth2:", then we can assume the token is for OAuth 2.
+            session.setOAuth2AccessToken(secret);
+        } else {
+            // Still support using old OAuth 1 tokens.
+            session.setAccessTokenPair(new AccessTokenPair(key, secret));
+        }
+    }
+    @SuppressWarnings("all")
+    private void storeAuth(AndroidAuthSession session) {
+        // Store the OAuth 2 access token, if there is one.
+        String oauth2AccessToken = session.getOAuth2AccessToken();
+        if (oauth2AccessToken != null) {
+            SharedPreferences.Editor edit = sharedPrefs.edit();
+            edit.putString(ACCESS_KEY_NAME, "oauth2:");
+            edit.putString(ACCESS_SECRET_NAME, oauth2AccessToken);
+            edit.apply();
+            return;
+        }
+        // Store the OAuth 1 access token, if there is one.  This is only necessary if
+        // you're still using OAuth 1.
+        AccessTokenPair oauth1AccessToken = session.getAccessTokenPair();
+        if (oauth1AccessToken != null) {
+            SharedPreferences.Editor edit = sharedPrefs.edit();
+            edit.putString(ACCESS_KEY_NAME, oauth1AccessToken.key);
+            edit.putString(ACCESS_SECRET_NAME, oauth1AccessToken.secret);
+            edit.apply();
+            return;
+        }
+    }
+
+    private void uploadFileToDropbox() {
+        Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                File file = new File(finalPath);
+                FileInputStream inputStream;
+                try {
+                    inputStream = new FileInputStream(file);
+                    try {
+                        mDBApi.putFile("/" + name, inputStream, file.length(), null, null);
+                    } catch (DropboxException e) {
+                        Log.i(LOG_TAG, "Trying to putFile(): " + e.toString() + "Logged in: " + loggedInToDropbox);
+                    }
+                } catch (FileNotFoundException e) {
+                    Log.i(LOG_TAG, "DROPBOX: FILE NOT FOUND");
+                }
+
+            }
+        };
+
+        Thread dropboxThread = new Thread(r);
+        dropboxThread.start();
+    }
+
 }
