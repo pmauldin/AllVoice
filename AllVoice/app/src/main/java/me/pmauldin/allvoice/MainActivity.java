@@ -464,7 +464,6 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     }
 
     private void upload() {
-        // GOOGLE DRIVE
         if(drive) {
             uploadFileToDrive();
         }
@@ -473,13 +472,13 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
             uploadFileToDropbox();
         }
 
-        if(box) {
-
-        }
-
-        if(onedrive) {
-
-        }
+//        if(box) {
+//
+//        }
+//
+//        if(onedrive) {
+//
+//        }
 
     }
 
