@@ -1,6 +1,14 @@
 apply plugin: 'com.android.application'
 
 android {
+    signingConfigs {
+        AllVoice {
+            keyAlias 'AllVoiceAndroidKey'
+            keyPassword 'mauldin'
+            storeFile file('C:/Users/Peter.Peter-Desktop/.android/allvoice.jks')
+            storePassword 'mauldin'
+        }
+    }
     compileSdkVersion 21
     buildToolsVersion "21.1.2"
     defaultConfig {
@@ -11,9 +19,8 @@ android {
         versionName "1.0"
     }
     buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+                AllVoice {
+            signingConfig signingConfigs.AllVoice
         }
     }
     productFlavors {
@@ -28,4 +35,5 @@ dependencies {
     compile 'com.google.android.gms:play-services:6.5.87'
     compile 'com.android.support:support-v4:21.0.3'
     compile project(':json_simple-1.1')
+    compile project(':src')
 }

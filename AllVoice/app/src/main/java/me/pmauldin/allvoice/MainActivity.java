@@ -39,6 +39,19 @@ import com.google.android.gms.drive.MetadataChangeSet;
 import com.google.android.gms.drive.query.Filters;
 import com.google.android.gms.drive.query.Query;
 import com.google.android.gms.drive.query.SearchableField;
+import com.microsoft.live.LiveAuthClient;
+import com.microsoft.live.LiveAuthException;
+import com.microsoft.live.LiveAuthListener;
+import com.microsoft.live.LiveConnectClient;
+import com.microsoft.live.LiveConnectSession;
+import com.microsoft.live.LiveOperation;
+import com.microsoft.live.LiveOperationException;
+import com.microsoft.live.LiveOperationListener;
+import com.microsoft.live.LiveStatus;
+import com.microsoft.live.LiveUploadOperationListener;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -48,16 +61,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 
-/* TODO
-    * UPLOAD
-        * DROPBOX
-        * BOX
-        * ONEDRIVE
-*/
-
-public class MainActivity extends ActionBarActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+public class MainActivity extends ActionBarActivity implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LiveAuthListener {
     private static final String LOG_TAG = "Local";
 
     // FILE VARIABLES
@@ -83,8 +91,10 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     private static SharedPreferences sharedPrefs;
 
     // GOOGLE DRIVE
-    private static String format = "mp3";
     private static boolean drive = false;
+    private static boolean driveSignedIn = false;
+    private static boolean disconnectDrive = false;
+    private static String format = "mp3";
     private static final int RC_SIGN_IN = 0;
     private GoogleApiClient mClient;
     private boolean mIntentInProgress = false;
@@ -93,19 +103,22 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
     // DROPBOX
     private static boolean dropbox = false;
+    private static boolean dropboxSignedIn = false;
     private static final String APP_KEY = "c00moo0mcy4htjh";
     private static final String APP_SECRET = "gujtifmjcfvt7bk";
-    private static final String ACCOUNT_PREFS_NAME = "prefs";
     private static final String ACCESS_KEY_NAME = "ACCESS_KEY";
     private static final String ACCESS_SECRET_NAME = "ACCESS_SECRET";
     private static String ACCESS_SECRET = "";
     private DropboxAPI<AndroidAuthSession> mDBApi;
 
-    // BOX
-    private static boolean box = false;
-
     // ONEDRIVE
     private static boolean onedrive = false;
+    private static boolean onedriveSignedIn = false;
+    private static final Iterable<String> scopes = Arrays.asList("wl.signin", "wl.basic", "wl.skydrive_update", "wl.offline_access");
+    private static final String ONEDRIVE_APP_CLIENT_ID = "000000004813AC36";
+    private static String ONEDRIVE_FOLDER_ID = "";
+    private LiveAuthClient auth;
+    private LiveConnectClient client;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -122,7 +135,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         setPrefs();
 
         // IF NO PREFS SET, GO TO SETTINGS SCREEN
-        if(!(local || drive || dropbox || box || onedrive)) {
+        if(!(local || drive || dropbox || onedrive)) {
             int duration = Toast.LENGTH_SHORT;
             Toast toast = Toast.makeText(context, toastText, duration);
             toast.show();
@@ -166,7 +179,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
                             // STOP RECORDING //
                             recorder.stop();
                             recorder.reset();
-                            createDialog();
+                            createSaveDialog();
 
                         } else {
                               recordButton.setImageResource(R.drawable.stop);
@@ -218,9 +231,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     @Override
     protected void onResume() {
         super.onResume();
-        setPrefs();
+        initializeServices();
 
-        if(!(local || drive || dropbox || box || onedrive)) {
+        if(!(local || drive || dropbox || onedrive)) {
             int duration = Toast.LENGTH_SHORT;
             Toast toast = Toast.makeText(context, toastText, duration);
             toast.show();
@@ -244,6 +257,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         // GOOGLE DRIVE
         if(drive) {
             if (mClient == null) {
+                driveSignedIn = false;
                 // Create the API client and bind it to an instance variable.
                 // We use this instance as the callback for connection and connection
                 // failures.
@@ -265,10 +279,12 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
 
             if (session.authenticationSuccessful()) {
                 try {
+                    dropboxSignedIn = true;
                     // Required to complete auth, sets the access token on the session
                     session.finishAuthentication();
                     storeAuth(session);
                 } catch (IllegalStateException e) {
+                    dropboxSignedIn = false;
                     Log.i("Dropbox", "Error authenticating dropbox", e);
                 }
             }
@@ -293,6 +309,8 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         if (id == R.id.action_settings) {
             Intent i = new Intent(getApplicationContext(), SettingsActivity.class);
             startActivity(i);
+        } else if(id == R.id.signout) {
+            createSignOutDialog();
         }
 
         return super.onOptionsItemSelected(item);
@@ -305,9 +323,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         return df.format(c.getTime());
     }
 
-    public void createDialog() {
+    public void createSaveDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setMessage(R.string.message);
+        builder.setMessage(R.string.saveDialogMessage);
         builder.setCancelable(false);
 
         final EditText input = new EditText(this);
@@ -373,6 +391,75 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         });
     }
 
+    public void createSignOutDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setCancelable(true);
+        final ArrayList selectedItems = new ArrayList();
+        boolean[] checked = {false, false, false};
+
+        builder.setTitle(R.string.signoutDialogMessage)
+                .setMultiChoiceItems(R.array.signoutChoices, checked, new DialogInterface.OnMultiChoiceClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which, boolean isChecked) {
+                        if(isChecked) {
+                            selectedItems.add(which);
+                        } else if(selectedItems.contains(which)) {
+                            selectedItems.remove(Integer.valueOf(which));
+                        }
+                    }
+                })
+                .setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        disconnect(selectedItems);
+                    }
+                })
+                .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+                    }
+                });
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private void disconnect(ArrayList selectedItems) {
+        SharedPreferences.Editor edit = sharedPrefs.edit();
+
+        if(selectedItems.contains(0)) {
+            // Sign out of Google Drive
+            disconnectDrive = true;
+            signInToDrive();
+            edit.putBoolean("pref_drive", false);
+
+        }
+        if(selectedItems.contains(1)) {
+            // Sign out of Dropbox
+            edit.remove(ACCESS_KEY_NAME);
+            edit.remove(ACCESS_SECRET_NAME);
+            edit.putBoolean("pref_dropbox", false);
+        }
+        if(selectedItems.contains(2)) {
+            // Sign out of OneDrive
+            edit.remove(ONEDRIVE_FOLDER_ID);
+            edit.putBoolean("pref_onedrive", false);
+
+        }
+
+        if(selectedItems.contains(0) && selectedItems.contains(1) && selectedItems.contains(2)) {
+            int duration = Toast.LENGTH_SHORT;
+            Toast toast = Toast.makeText(context, toastText, duration);
+            toast.show();
+
+            Intent i = new Intent(getApplicationContext(), SettingsActivity.class);
+            startActivity(i);
+        }
+
+        edit.apply();
+    }
+
     public void play() {
         if(!playing) {
             mPlayer = new MediaPlayer();
@@ -412,25 +499,21 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         setPrefs();
 
         // GOOGLE DRIVE
-        if(drive) {
+        if(drive && !driveSignedIn) {
             signInToDrive();
             createDriveFolder();
             Log.i("Google", "GOOGLE DRIVE INITIALIZATION SUCCESSFUL " + drive);
         }
 
         // DROPBOX
-        if(dropbox) {
+        if(dropbox && !dropboxSignedIn) {
             signInToDropbox();
             Log.i("Dropbox", "DROPBOX INITIALIZATION SUCCESSFUL");
         }
 
-        // BOX
-        if(box) {
-            Log.i(LOG_TAG, "BOX INITIALIZATION SUCCESSFUL");
-        }
-
         // ONEDRIVE
-        if(onedrive) {
+        if(onedrive && !onedriveSignedIn) {
+            signInToOneDrive();
             Log.i(LOG_TAG, "ONEDRIVE INITIALIZATION SUCCESSFUL");
         }
     }
@@ -438,8 +521,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
     private void setPrefs() {
         drive = sharedPrefs.getBoolean("pref_drive", false);
         dropbox = sharedPrefs.getBoolean("pref_dropbox", false);
-        box = sharedPrefs.getBoolean("pref_box", false);
         onedrive = sharedPrefs.getBoolean("pref_onedrive", false);
+        ONEDRIVE_FOLDER_ID = sharedPrefs.getString("ONEDRIVE_FOLDER_ID", "");
+
         fileType = sharedPrefs.getString("pref_format", ".mp3");
         local = sharedPrefs.getBoolean("pref_local", true);
 
@@ -472,13 +556,9 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
             uploadFileToDropbox();
         }
 
-//        if(box) {
-//
-//        }
-//
-//        if(onedrive) {
-//
-//        }
+        if(onedrive) {
+            uploadFileToOneDrive();
+        }
 
     }
 
@@ -498,6 +578,7 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         if (!mIntentInProgress && result.hasResolution()) {
             try {
                 Log.d("Google", "Connected Failed Try:" + result.toString());
+                driveSignedIn = false;
                 mIntentInProgress = true;
                 result.startResolutionForResult(this, RC_SIGN_IN);
             } catch (IntentSender.SendIntentException e) {
@@ -516,6 +597,12 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         // We've resolved any connection errors.  mClient can be used to
         // access Google APIs on behalf of the user.
         Log.d("Google", "Connected Successfully");
+        if(disconnectDrive) {
+            Log.i("Google", "Disconnecting Google Drive Account");
+            mClient.clearDefaultAccountAndReconnect();
+            disconnectDrive = false;
+        }
+        driveSignedIn = true;
     }
 
     @Override
@@ -736,4 +823,128 @@ public class MainActivity extends ActionBarActivity implements GoogleApiClient.C
         dropboxThread.start();
     }
     // END DROPBOX INTEGRATION
+
+    // BEGIN ONEDRIVE INTEGRATION
+    public void signInToOneDrive() {
+        try {
+            auth.initialize(scopes, new LiveAuthListener() {
+                @Override
+                public void onAuthError(final LiveAuthException exception, final Object userState) {
+                    Log.i("OneDrive", "Failed to initialize onedrive: " + exception.getError());
+                }
+
+                @Override
+                public void onAuthComplete(final LiveStatus status, final LiveConnectSession session,
+                                           final Object userState) {
+
+                    if(status != LiveStatus.CONNECTED) {
+                        Log.i("OneDrive", "OneDrive is not connected: " + status.name());
+                    } else {
+                        Log.i("OneDrive", "OneDrive is connected");
+                        onedriveSignedIn = true;
+                        if(ONEDRIVE_FOLDER_ID.equals("")) {
+                            createOneDriveFolder();
+                        }
+                    }
+                }
+            });
+        } catch (NullPointerException e) {
+            Log.i(LOG_TAG, e.toString());
+        }
+
+        if(!onedriveSignedIn) {
+            this.auth = new LiveAuthClient(context, ONEDRIVE_APP_CLIENT_ID);
+            this.auth.login(this, scopes, this);
+        }
+    }
+
+    @SuppressWarnings("all")
+    public void onAuthComplete(LiveStatus status, LiveConnectSession session, Object userState) {
+        if(status == LiveStatus.CONNECTED) {
+            client = new LiveConnectClient(session);
+            if(client != null) {
+                Log.i("OneDrive", "Signed in to onedrive");
+                if(ONEDRIVE_FOLDER_ID.equals("")) {
+                    createOneDriveFolder();
+                }
+                onedriveSignedIn = true;
+            }
+        }
+        else {
+            Log.i("OneDrive", "Not signed in to onedrive");
+            onedriveSignedIn = false;
+            client = null;
+        }
+    }
+
+    public void onAuthError(LiveAuthException exception, Object userState) {
+        Log.i("OneDrive", "Error signing in to onedrive: " + exception.toString() + " - " + exception.getError());
+        onedriveSignedIn = false;
+        client = null;
+//        signInToOneDrive();
+    }
+
+    public void createOneDriveFolder() {
+        Log.i("OneDrive", "Trying to create OneDrive folder");
+        final LiveOperationListener opListener = new LiveOperationListener() {
+            public void onError(LiveOperationException exception, LiveOperation operation) {
+                Log.i("OneDrive", "Error creating folder: " + exception.getMessage());
+            }
+            public void onComplete(LiveOperation operation) {
+                JSONObject result = operation.getResult();
+                if(!result.optString("id").equals("")) {
+                    ONEDRIVE_FOLDER_ID = result.optString("id");
+                    SharedPreferences.Editor edit = sharedPrefs.edit();
+                    edit.putString("ONEDRIVE_FOLDER_ID", ONEDRIVE_FOLDER_ID);
+                    edit.commit();
+                }
+                String text = "Folder created:\n" +
+                        "\nID = " + ONEDRIVE_FOLDER_ID +
+                        "\nName = " + result.optString("name");
+                Log.i("OneDrive", text);
+            }
+        };
+
+        try {
+            JSONObject body = new JSONObject();
+            body.put("name", "AllVoice");
+            body.put("description", "AllVoice");
+            client.postAsync("me/skydrive", body, opListener);
+        }
+        catch(JSONException ex) {
+            Log.i("OneDrive", "Error building folder: " + ex.getMessage());
+        }
+    }
+
+    public void uploadFileToOneDrive() {
+        final Runnable uploadFile = new Runnable() {
+            @Override
+            public void run() {
+                File file = new File(finalPath);
+                try {
+                    client.uploadAsync(ONEDRIVE_FOLDER_ID, name, file, new LiveUploadOperationListener() {
+                        @Override
+                        public void onUploadCompleted(LiveOperation operation) {
+                            Log.i("OneDrive", "SUCCESSFULLY UPLOADED FILE TO ONEDRIVE");
+                        }
+
+                        @Override
+                        public void onUploadFailed(LiveOperationException exception, LiveOperation operation) {
+                            Log.i("OneDrive", "ERROR UPLOADING FILE TO ONEDRIVE: " + exception.toString());
+                        }
+
+                        @Override
+                        public void onUploadProgress(int totalBytes, int bytesRemaining, LiveOperation operation) {
+
+                        }
+                    });
+                } catch (Exception e) {
+                    Log.i("OneDrive", "ERROR UPLOADING FILE TO ONEDRIVE: " + e.toString());
+                }
+            }
+        };
+
+        new Thread(uploadFile).start();
+    }
+
 }

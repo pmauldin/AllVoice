@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merger version="3"><dataSet config="main"><source path="D:\Documents\GitHub\AllVoice\AllVoice\src\res"/><source path="D:\Documents\GitHub\AllVoice\AllVoice\src\build\generated\res\rs\release"/><source path="D:\Documents\GitHub\AllVoice\AllVoice\src\build\generated\res\generated\release"/></dataSet><dataSet config="release"><source path="D:\Documents\GitHub\AllVoice\AllVoice\src\src\release\res"/></dataSet><mergedItems/></merger>

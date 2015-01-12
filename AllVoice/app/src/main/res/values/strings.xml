@@ -9,18 +9,21 @@
     <string name="save">Save</string>
     <string name="discard">Discard</string>
     <string name="neutral">Preview</string>
-    <string name="message">Keep this audio?</string>
+    <string name="saveDialogMessage">Keep this audio?</string>
     <string name="title_activity_google_play_services">GooglePlayServicesActivity</string>
     <string name="title_activity_login">LoginActivity</string>
     <string name="pref_local">Save audio locally?</string>
     <string name="pref_services">Services to upload to</string>
     <string name="pref_drive">Google Drive</string>
     <string name="pref_dropbox">Dropbox</string>
-    <string name="pref_box">Box</string>
     <string name="pref_onedrive">OneDrive</string>
     <string name="pref_storage">Storage</string>
     <string name="pref_formatDialogTitle">Choose Format to save audio in</string>
     <string name="pref_formatTitle">Output Format</string>
     <string name="pref_format_mp3">MP3</string>
+    <string name="signout">Disconnect Accounts...</string>
+    <string name="signoutDialogMessage">Select which accounts you want to disconnect</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
 
 </resources>

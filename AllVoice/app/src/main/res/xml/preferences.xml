@@ -31,10 +31,6 @@
             android:title="@string/pref_dropbox"
             android:defaultValue="false" />
         <CheckBoxPreference
-            android:key="pref_box"
-            android:title="@string/pref_box"
-            android:defaultValue="false" />
-        <CheckBoxPreference
             android:key="pref_onedrive"
             android:title="@string/pref_onedrive"
             android:defaultValue="false" />

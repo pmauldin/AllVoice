@@ -12,4 +12,9 @@
         <item>.mp4</item>
         <item>.flac</item>
     </string-array>
+    <string-array name="signoutChoices">
+        <item>Google Drive</item>
+        <item>Dropbox</item>
+        <item>OneDrive</item>
+    </string-array>
 </resources>
